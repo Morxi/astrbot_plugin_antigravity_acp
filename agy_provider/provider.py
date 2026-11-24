@@ -473,7 +473,7 @@ class AgyProvider(Provider):
             request.system_bytes = len(request.system.encode())
             if not selected:
                 raise AgyError(
-                    "MODEL", "请先获取 Gemini 模型列表并在 AstrBot 中选择具体模型。"
+                    "MODEL", "请先获取 AGY 模型列表并在 AstrBot 中选择具体模型。"
                 )
             if not isinstance(effort, str) or effort not in {
                 "default",

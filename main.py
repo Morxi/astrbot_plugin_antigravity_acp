@@ -46,7 +46,7 @@ def unregister_owned_adapter() -> None:
 @register(
     "astrbot_plugin_antigravity_acp",
     "sl251",
-    "通过本机 AGY ACP 使用 Gemini 模型",
+    "通过本机 AGY ACP 使用 Gemini / Claude 模型",
     PLUGIN_VERSION,
     "https://github.com/sl251/astrbot_plugin_antigravity_acp",
 )
@@ -198,9 +198,9 @@ class AgyProviderPlugin(Star):
             template["modalities"].append("image")
         registry.register_provider_adapter(
             PROVIDER_TYPE,
-            "本机官方 AGY CLI / ACP Gemini 模型（支持 custom_extra_body.agy_tools_mode=inherit|chat|tools）",
+            "本机官方 AGY CLI / ACP Gemini / Claude 模型（支持 custom_extra_body.agy_tools_mode=inherit|chat|tools）",
             default_config_tmpl=template,
-            provider_display_name="AGY Gemini (ACP)",
+            provider_display_name="AGY ACP (Gemini/Claude)",
         )(AgyProvider)
         self.registered = True
         try:

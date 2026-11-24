@@ -1,6 +1,6 @@
 # 当前架构与源码导航
 
-适用于发布基线 **v0.7.5**。运行范围为 AstrBot **`>=4.29.4,<4.30`**、Python **3.11+**；4.30 已知文案过滤不是宿主兼容声明。项目约束先读 [AGENTS.md](../AGENTS.md)，排错按 [SOP](troubleshooting.md)，验证按 [测试规范](testing.md)。本页描述当前契约，历史实现与各环境验收见 [CHANGELOG](../CHANGELOG.md)。
+适用于发布基线 **v0.8.0**。运行范围为 AstrBot **`>=4.29.4,<4.30`**、Python **3.11+**；4.30 已知文案过滤不是宿主兼容声明。项目约束先读 [AGENTS.md](../AGENTS.md)，排错按 [SOP](troubleshooting.md)，验证按 [测试规范](testing.md)。本页描述当前契约，历史实现与各环境验收见 [CHANGELOG](../CHANGELOG.md)。
 
 版本核对：[metadata.yaml](../metadata.yaml) 与 [_version.py](../agy_provider/_version.py) 的 `PLUGIN_VERSION`（由 [main.py](../main.py) 注册、[transport.py](../agy_provider/transport.py) clientInfo、[mcp_bridge.py](../agy_provider/mcp_bridge.py) serverInfo 统一引用，并由 [test_release_hygiene.py](../tests/test_release_hygiene.py) 强校验一致），以这两个文件为准；本文不重复写死具体版本号。排障仍需同时记录部署 SHA 与各字段，不能仅凭标签判断代码版本。
 
@@ -68,7 +68,7 @@ flowchart LR
 
 放行后 `ToolBroker.dispatch()` 继续检查活跃轮、会话元数据、工具名称、参数、次数/并发/结果预算；`ToolTurn` 交给 AstrBot 审批和执行，按审计过的调用及参数匹配回填。不能因 ACP 已许可就跳过宿主约束。
 
-`ToolSnapshot.to_host_schema` 是独立深拷贝的宿主原始 schema；`tools[].inputSchema` 是 Gemini 适配 schema。缺失 array `items`（含 `anyOf`/`oneOf`/`allOf`、`additionalProperties` 与联合类型列表中的数组）时模型端保守补 string，执行端仍按原始契约接受原本合法的数字/对象/空/嵌套数组；显式 string items 继续拒绝非字符串。两份 schema 都进入快照指纹；并不据此保证模型实际会生成所有合法值或 Gemini 支持空 items。
+`ToolSnapshot.to_host_schema` 是独立深拷贝的宿主原始 schema；`tools[].inputSchema` 是模型侧适配 schema（Gemini 需补 `items`；Claude 条目走同一路径，补齐字段无害）。缺失 array `items`（含 `anyOf`/`oneOf`/`allOf`、`additionalProperties` 与联合类型列表中的数组）时模型端保守补 string，执行端仍按原始契约接受原本合法的数字/对象/空/嵌套数组；显式 string items 继续拒绝非字符串。两份 schema 都进入快照指纹；并不据此保证模型实际会生成所有合法值或 Gemini 支持空 items。
 
 ## system 过滤与 429 的证据边界
 
@@ -102,6 +102,7 @@ flowchart LR
 | 项目 | 当前默认与约束 |
 | --- | --- |
 | CLI | `command` 留空自动发现；显式值为原生可执行文件绝对路径，无 shell 参数；Windows 不用 `.cmd/.bat` |
+| 模型族 | `models.py::MODEL_FAMILIES = ("gemini", "claude")`；模型 id/name 仍来自真实 ACP 目录，白名单只做收敛过滤（id 或展示名命中即可）；加新族只改这一行；`NO_MODELS` 表示目录里没有命中任何族 |
 | 代理 | `proxy_mode=inherit`；支持 `custom/direct`，custom 仅注入 CLI 子进程；容器内 localhost 指容器 |
 | 工具 | `enable_tools=false`；还需宿主 `tool_use`、实际 ToolSet、身份/取消信号；`agy_tools_mode=inherit/chat/tools`，chat 无工具，tools 不能绕过总闸；`tool_choice` 仅 auto/none |
 | 工具预算 | 16 次、并发 1、审批 60 秒、执行 120 秒、结果总计 262144 字节；超限报错，不静默截断 |

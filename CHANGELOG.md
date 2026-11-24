@@ -1,5 +1,13 @@
 # 变更记录
 
+## 0.8.0（正式发布，2026-11-24）
+
+- **新增 Claude 模型族支持**：`agy_provider/models.py` 原来在 `catalog_names()` 里硬编码只保留含 `gemini` 的条目，导致 `agy models` 明明返回 `claude-opus-5-5-*` / `claude-sonnet-5-5-*`，插件面板与 AstrBot 模型列表里却完全看不到，账号在没有 Gemini 权限时会直接报 `NO_MODELS`。现改为族白名单常量 `MODEL_FAMILIES = ("gemini", "claude")` 与 `is_supported_model(model_id, name)`：仍只收敛过滤、不硬编码模型清单（真实 id/name 一律来自 ACP 目录），id 与展示名任一命中即收录（上游 id 可能是不透明串）。
+- **文案与面板同步**：`NO_MODELS`/`MODEL` 报错改为「Gemini / Claude」可用目录语义；`provider.py` 未选模型提示、`onboarding.py` 错误提示、`main.py` 适配器描述与 `provider_display_name`（`AGY ACP (Gemini/Claude)`）、`metadata.yaml`、WebUI i18n（zh-CN/en-US）一并更新。
+- **未改变的契约**：模型 id 仍来自真实 ACP 目录；思考档位仍按该模型返回的 `thought_level` 选项校验，不支持时明确报 `UNSUPPORTED` 而非静默用旧档位；Claude 条目同样走 `session/set_model` 或 `session/set_option` 切换路径，工具 schema 适配（`_sanitize_for_gemini`，对 Claude 是无害的 `array.items` 补齐）、429 过滤与会话复用均未放宽。
+- **已知边界**：`gpt-oss-*` 等其他族仍被过滤，需要时在 `MODEL_FAMILIES` 追加一族；本版未做 Claude 侧实机端到端验收（工具轮 / 图片 / 长上下文），仅完成离线回归与目录过滤验证。
+- **测试**：`tests/test_acp.py` 新增 3 项——Gemini+Claude 混合目录、仅 Claude 账号不报 `NO_MODELS`、全不匹配族仍报 `NO_MODELS`。离线全量回归 **281 项通过 / 0 失败 / 12 项按平台跳过**（Python 3.14），`compileall` 通过；原 `test_grouped_catalog_filters_non_gemini` 语义未变，继续覆盖不透明 id 借展示名命中的情况。
+
 ## 0.7.5（正式发布，2026-11-22）
 
 - **修复 #28：设置面板复制按钮全部失效（含卡住 Google 登录）**：AstrBot 4.29.4 把插件页放进 `sandbox="allow-scripts allow-forms allow-downloads"` 的 iframe（无 `allow-same-origin`、无 `allow="clipboard-write"`、无 `allow-popups`），面板又通常经 `http://<ip>:6185` 访问（非安全上下文），此时 `navigator.clipboard` 为 `undefined`；原 `copy()` 只有 Clipboard API 一条路径，失败仅向页脚写一行小字。现改为三级降级：`navigator.clipboard?.writeText` → 点击手势内同步执行临时 `textarea` + `document.execCommand("copy")` → 两者都失败才选中原文并提示快捷键；4 类复制入口（安装命令、官方文档、授权链接、`复制命令`）均把按钮自身传入并就地显示「已复制 ✓ / 请手动复制」，`#copy-status` 改为底部居中浮层、3s 自动消失。授权链接新增「在新标签打开」，`window.open` 被 sandbox 拦截时明确提示改用复制。

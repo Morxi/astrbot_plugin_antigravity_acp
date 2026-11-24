@@ -2,7 +2,7 @@
   "views": {
     "setup": {
       "title": "Antigravity ACP",
-      "description": "Check CLI status, sign in with Google, and configure Gemini models."
+      "description": "Check CLI status, sign in with Google, and configure Gemini / Claude models."
     }
   }
 }

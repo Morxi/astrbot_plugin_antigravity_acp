@@ -7,11 +7,11 @@
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Docker-blue)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![AstrBot](https://img.shields.io/badge/AstrBot-%3E%3D4.29.4%2C%3C4.30-orange)
-![Status](https://img.shields.io/badge/Status-v0.7.5-brightgreen)
+![Status](https://img.shields.io/badge/Status-v0.8.0-brightgreen)
 
-通过 Google 官方 `agy` 客户端内置的 ACP（Agent Client Protocol）协议，把 Antigravity 模型安全、稳定地接入 AstrBot，作为日常对话主力。
+通过 Google 官方 `agy` 客户端内置的 ACP（Agent Client Protocol）协议，把 Antigravity 模型（**Gemini 与 Claude**）安全、稳定地接入 AstrBot，作为日常对话主力。
 
-> 💡 **版本速递（v0.7.5，2026-11-22）**：修复 #28——AstrBot 插件页运行在受限 sandbox iframe 且面板常走 HTTP，`navigator.clipboard` 不可用导致「复制」按钮全部失效（含卡住 Google 登录的授权链接）。现在复制改走「Clipboard API → `execCommand` 同步兜底 → 选中文本」三级降级，按钮就地反馈并新增「在新标签打开」；同时修正轮询打断手工选区、bfcache 失效、浅色对比度与三态主题等 21 项 UI 问题。详细改动见 [CHANGELOG.md](CHANGELOG.md)。
+> 💡 **版本速递（v0.8.0，2026-11-24）**：新增 **Claude 模型支持**——模型目录不再只接受 `gemini*`，`claude-opus-5-5-*` / `claude-sonnet-5-5-*` 等 ACP 实际返回的条目会一并出现在 AstrBot 的模型列表里，思考档位仍按模型真实返回的 `thought_level` 校验（不支持则明确报 `UNSUPPORTED`，不回退默认档）。模型族白名单集中在 `agy_provider/models.py::MODEL_FAMILIES`，加新族只需一行。
 
 ---
 
@@ -53,6 +53,7 @@
 
 ## 2. 核心特性
 
+- **多模型族**：同一条 ACP 通道可按账号实际目录选用 **Gemini 4 / Gemini 3.8 / Claude Opus / Claude Sonnet** 等条目，切换后按 CLI 返回的档位重新枚举思考等级。
 - **官方通道直连**：原生 stdio 管道通信，享受 Google 官方客户端的稳定连接与低风控保障（这不构成账号安全或上游可用性的绝对保证）。
 - **双模能力支持**：支持多模态识图（Vision）以及内置 MCP 桥接工具调用（Tool Use），可无缝调用 AstrBot 的各种技能插件。
 - **WebUI 运行监控**：在 AstrBot 插件详情 →「首次设置」查看，按「概览 / 详细统计 / 高级诊断」分层展示会话池、近 24 小时用量与上下文缓存情况。纯本地轻量渲染，只读脱敏快照，不额外消耗模型额度。
@@ -81,7 +82,7 @@ git clone --branch main https://github.com/sl251/astrbot_plugin_antigravity_acp.
 打开 **AstrBot WebUI → 插件 → Antigravity ACP → 首次设置**（也可以用管理员账号给机器人发送 `/agy setup`）：
 1. **环境检测**：页面会自动检测本机 `agy` 是否就绪。
 2. **官方登录**：点击「开始官方登录」，复制生成的授权链接到浏览器完成登录；需要手动提交时只粘贴浏览器给出的单行授权码（当前不解析完整 localhost 回调 URL），**注意不要把授权码发到公开群聊里**。
-3. **选择模型**：拉取当前账号实际可用的模型列表，挑选所需模型并调节思考档位（`default` / `low` / `medium` / `high`），点击 **「保存并启用模型」**。
+3. **选择模型**：拉取当前账号实际可用的模型列表（`Gemini …` 与 `Claude …` 均会列出），挑选所需模型并调节思考档位（`default` / `low` / `medium` / `high`），点击 **「保存并启用模型」**。
 
 之后想换模型，用 `/agy use <provider_id>`，或直接在 AstrBot 的提供商列表里切换。纯聊天建议在首次设置中选 `chat` 角色，避免工具 schema 额外占用上下文空间。
 
@@ -103,6 +104,8 @@ git clone --branch main https://github.com/sl251/astrbot_plugin_antigravity_acp.
 - **触发 429 限流问题**：
   0.7.1 起已自动过滤 AstrBot 4.29.4 与 4.30 已知的失实本地能力声明，但这不等于完整支持 4.30（当前支持 `>=4.29.4,<4.30`）。若开启「使用电脑能力 → 本机环境」后仍出现 429，可暂在模型配置中改回「不允许任何环境」；这是针对该现象的临时对照，不是所有 429 的通用修复。
   0.7.2 另对 [#19](https://github.com/sl251/astrbot_plugin_antigravity_acp/issues/19) 的 Safe Mode 第 4 条规则实施结构锚定的等义改写，保留安全约束（实机已验收：不再出现该伪 429）；详见 [CHANGELOG](CHANGELOG.md)。
+- **模型列表里只有 Gemini / Claude，没有别的？**
+  这是插件的模型族白名单（`agy_provider/models.py::MODEL_FAMILIES`）在过滤，不是账号权限问题。ACP 目录里的 `gpt-oss-*` 等条目默认不展示；要放开就把族名加入该元组，并在宿主重新拉取模型列表。
 - **只读诊断与统计指令**：
   - `/agy doctor`：进行无损连通性与会话自检。
   - `/agy cost`：查看各实例只读缓存复用、近 24 小时 Token 统计与进程池摘要（不发任何模型请求）。
@@ -113,6 +116,7 @@ git clone --branch main https://github.com/sl251/astrbot_plugin_antigravity_acp.
 
 *(完整历史见 [`CHANGELOG.md`](./CHANGELOG.md))*
 
+- **v0.8.0**：新增 Claude 模型族支持（`models.py::MODEL_FAMILIES`），目录过滤、`NO_MODELS`/`MODEL` 报错文案与模型页面板文案同步改为 Gemini/Claude 双族；新增 3 项目录过滤回归（Gemini+Claude 混合、仅 Claude 账号、全不匹配族）。
 - **v0.7.5**：修复设置面板复制按钮在 sandbox iframe + 非 HTTPS 下全部失效（#28）——三级降级复制、按钮就地反馈、授权链接「在新标签打开」；轮询差量渲染与 5/10/20/30s 退避、bfcache 恢复、监控重建签名跳过、浅色对比度达 AA、三态主题持久化等 21 项 UI 修正（[#29](https://github.com/sl251/astrbot_plugin_antigravity_acp/pull/29)）。
 - **v0.7.4**：修复会话重建时历史窗口图片被重复提取为当前轮附件（#24）——仅当前最新用户消息的图片随请求附带，历史图在转录中保留哈希占位；跨轮重发同图不被误去重，预算裁剪不丢当前轮图片；**仍会预检历史图片（旧图源失效或累计预算可能报错）**；新增 8 项单元回归与 3 项会话级集成测试（[#25](https://github.com/sl251/astrbot_plugin_antigravity_acp/pull/25)）。
 - **v0.7.3**：修复 Python 3.12+ 工具桥关闭死锁与同会话并发请求误杀活跃工具轮；补全 `anyOf`/联合类型数组 schema 适配；无损剥离 PNG 压缩辅助块并支持 8 位索引色；CLI 探测缓存、长历史二分裁剪与 ZIP 归档瘦身（[#22](https://github.com/sl251/astrbot_plugin_antigravity_acp/pull/22)）。
@@ -132,6 +136,7 @@ git clone --branch main https://github.com/sl251/astrbot_plugin_antigravity_acp.
 | 模型请求只走官方 `agy acp` stdio；每会话隔离目录，认证由官方 CLI 管理，不读取或记录凭据内容 | [架构与认证](docs/architecture.md)，[启动/登录排障](docs/troubleshooting.md#启动登录与模型设置) |
 | CLI 内置文件、终端、web search/browser 继续拒绝；只有当前活跃 prompt 中已观测且匹配的快照 MCP 调用可获唯一 `allow_once`，宿主审批/校验/预算仍有效 | [MCP 权限与 schema](docs/architecture.md#mcp-的两层权限与两份-schema)，[#12 排障](docs/troubleshooting.md#empty权限拒绝与-12) |
 | 模型 schema 适配（含 `anyOf`/联合类型数组）与宿主原始契约独立；执行按原始 schema 校验，两者均参与工具指纹 | [#13 参数排障](docs/troubleshooting.md#tool_arguments-与-13) |
+| 模型族白名单 `MODEL_FAMILIES = ("gemini", "claude")` 决定哪些 ACP 目录条目进入 AstrBot 模型列表；条目本身仍来自真实 `modelId`/`name`，档位按 CLI 实际 `thought_level` 校验 | [models.py](../agy_provider/models.py)、[关键配置](docs/architecture.md#关键配置) |
 | 默认严格会话复用；活跃工具轮等待回填期间同会话并发新请求按 `queue_timeout` 排队隔离；已输出正文/思考或交接工具后失败禁止重试/fallback | [会话与防重放](docs/architecture.md#会话历史与防重放) |
 | system 仅过滤已知宿主能力声明并定点兼容改写已知 Safe Mode 单句；4.30 文案处理不是 4.30 宿主兼容证明；`content_429_candidate` 是候选遥测，不是上游根因 | [过滤与 429 边界](docs/architecture.md#system-过滤与-429-的证据边界)，[#14 / #19 排障](docs/troubleshooting.md#rate_limit--quota-与-14) |
 | 检测/保存不等于真实生成；用量缺失保留未知；监控只读现有脱敏快照，不发模型请求 | [排障 SOP](docs/troubleshooting.md)，[实机验收分层](docs/testing.md#实机验收) |

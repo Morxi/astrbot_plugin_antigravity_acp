@@ -3,6 +3,22 @@
 from .errors import AgyError
 from .transport import AcpClient
 
+# Model families this provider is allowed to surface. The real ids always come
+# from the ACP catalog; this is only a safety filter against opaque or
+# non-chat entries. Upstream ids can be opaque, so the reported name is checked
+# too. Add a family here to expose it in AstrBot's model list.
+MODEL_FAMILIES = ("gemini", "claude")
+_FAMILY_LABELS = {"gemini": "Gemini", "claude": "Claude"}
+MODEL_FAMILIES_LABEL = " / ".join(
+    _FAMILY_LABELS.get(family, family.capitalize()) for family in MODEL_FAMILIES
+)
+
+
+def is_supported_model(model_id: str, name: str = "") -> bool:
+    """Whether an ACP catalog entry belongs to a supported family."""
+    haystack = f"{model_id} {name}".lower()
+    return any(family in haystack for family in MODEL_FAMILIES)
+
 
 def options(result: dict) -> list[dict]:
     return [opt for opt in (result.get("configOptions") or []) if isinstance(opt, dict)]
@@ -41,14 +57,13 @@ def catalog_names(result: dict) -> dict[str, str]:
             found[model["modelId"]] = str(model.get("name", model["modelId"]))
     # Name as well as id is checked because upstream ids can be opaque.
     ids = {
-        key: name
-        for key, name in found.items()
-        if "gemini" in key.lower() or "gemini" in name.lower()
+        key: name for key, name in found.items() if is_supported_model(key, name)
     }
     if not ids:
         raise AgyError(
             "NO_MODELS",
-            "当前 ACP 目录没有 Gemini 模型，请检查 CLI 登录与账号模型权限。",
+            f"当前 ACP 目录没有可用的 {MODEL_FAMILIES_LABEL} 模型，"
+            "请检查 CLI 登录与账号模型权限。",
         )
     return ids
 
@@ -60,7 +75,9 @@ def catalog(result: dict) -> list[str]:
 async def select(client: AcpClient, result: dict, model: str, effort: str) -> list[dict]:
     available = catalog(result)
     if model not in available:
-        raise AgyError("MODEL", "所选模型不在当前 Gemini 目录中，请重新获取模型列表。")
+        raise AgyError(
+            "MODEL", "所选模型不在当前可用模型目录中，请重新获取模型列表。"
+        )
     config = options(result)
     model_option = find_option(config, "model")
     current = (model_option or {}).get("currentValue") or (

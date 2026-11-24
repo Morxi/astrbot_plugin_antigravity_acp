@@ -223,6 +223,60 @@ class AcpTests(unittest.IsolatedAsyncioTestCase):
         }
         self.assertEqual(catalog_names(result), {"opaque": "Gemini"})
 
+    def test_catalog_accepts_claude_next_to_gemini(self):
+        result = {
+            "configOptions": [
+                {
+                    "id": "model",
+                    "options": [
+                        {
+                            "value": "gemini-3.8-flash-low",
+                            "name": "Gemini 3.8 Flash (Low)",
+                        },
+                        {
+                            "value": "claude-opus-5-5-high",
+                            "name": "Claude Opus 5.5 (High)",
+                        },
+                        {"value": "gpt-oss-120b-medium", "name": "GPT-OSS 120B"},
+                    ],
+                }
+            ]
+        }
+        self.assertEqual(
+            set(catalog_names(result)), {"gemini-3.8-flash-low", "claude-opus-5-5-high"}
+        )
+
+    def test_catalog_accepts_claude_only_account(self):
+        # An account without any Gemini entitlement must still expose Claude.
+        result = {
+            "models": {
+                "currentModelId": "claude-sonnet-5-5-medium",
+                "availableModels": [
+                    {
+                        "modelId": "claude-sonnet-5-5-medium",
+                        "name": "Claude Sonnet 5.5 (Medium)",
+                    }
+                ],
+            }
+        }
+        self.assertEqual(
+            catalog_names(result),
+            {"claude-sonnet-5-5-medium": "Claude Sonnet 5.5 (Medium)"},
+        )
+
+    def test_catalog_rejects_unsupported_family(self):
+        result = {
+            "configOptions": [
+                {
+                    "id": "model",
+                    "options": [{"value": "mistral-x", "name": "Mistral"}],
+                }
+            ]
+        }
+        with self.assertRaises(AgyError) as caught:
+            catalog_names(result)
+        self.assertEqual(caught.exception.code, "NO_MODELS")
+
     async def test_discover_caches_by_file_stat_and_populates_login_support(self):
         binary = self.root / ("agy.exe" if os.name == "nt" else "agy")
         binary.write_bytes(b"binary-v1")
